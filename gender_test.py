@@ -10,7 +10,7 @@ from PIL import Image
 
 classes = ('男','女')
 mbatch_size = 8
-path = "C:\\Users\\16404\\Desktop\\demo"
+path = "path"
 
 
 def image_loader(image_name):
@@ -73,7 +73,7 @@ def test2():
     print('预测值: ', " ".join('%5s' % classes[predicted[j]] for j in range(mbatch_size)))
 
 def test3():
-    path = 'C:\\Users\\16404\\Desktop\\demo\\新建文件夹\\images2.jpg'
+    path = 'path\\images.jpg'
 
     net = reload_net()
     image = image_loader(path)
@@ -84,7 +84,11 @@ def test3():
 
     print(classes[predicted])
 
+    outputs = net(Variable(image))
 
+    _, predicted = torch.max(outputs.data, 1)
+
+    print(classes[predicted])
 
 
 
