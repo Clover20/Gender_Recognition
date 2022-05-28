@@ -2,28 +2,45 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.optim as optim
+from torch.utils.data.dataloader import default_collate
 
-def loadtraindata():
+
+def loaddata():
     # 路径
-    path = "data/train"
-    train = torchvision.datasets.ImageFolder(path,transform=transforms.Compose([
-                                                    # 将图片缩放到指定大小（h,w）或者保持长宽比并缩放最短的边到int大小
-                                                    transforms.Resize((32, 32)),
-                                                    #在图片的中间区域进行裁
-                                                    transforms.CenterCrop(32),
-                                                    transforms.ToTensor()])
-                                                )
+    path = "data/data"
+    transform = transforms.Compose([
+        # 将图片缩放到指定大小（h,w）或者保持长宽比并缩放最短的边到int大小
+        transforms.Resize((32, 32)),
+        # 在图片的中间区域进行裁
+        transforms.CenterCrop(32),
+        transforms.ToTensor(),
+    ])
 
-    trainloader = torch.utils.data.DataLoader(train,
+    full_dataset= torchvision.datasets.ImageFolder(path, transform)
+    train_size=int(0.8 * len(full_dataset))
+    test_size=len(full_dataset)-train_size
+    train_dataset,test_dataset = torch.utils.data.random_split(full_dataset,[train_size,test_size])
+    trainloader = torch.utils.data.DataLoader(train_dataset,
                                               ##每一个batch加载4组样本
                                               batch_size=4,
                                               #每一个epoch之后是否对样本进行随机打乱
                                               shuffle=True,
                                               #几个线程来工作
-                                              num_workers=2)
-    return trainloader
+                                              num_workers=2,
+                                              pin_memory=True
+                                             )
+
+    testloader = torch.utils.data.DataLoader(test_dataset,
+                                              ##每一个batch加载4组样本
+                                              batch_size=4,
+                                              # 每一个epoch之后是否对样本进行随机打乱
+                                              shuffle=True,
+                                              # 几个线程来工作
+                                              num_workers=2,
+                                              pin_memory=True
+                                              )
+    return trainloader,testloader
 
 # 4层神经网络
 class NeuralNetwork(nn.Module):
@@ -57,52 +74,50 @@ class NeuralNetwork(nn.Module):
         return x
 
 
-
-
-
-
 def trainandsave(dataloader, model, criterion, optimizer,device):
+
+    size = len(dataloader.dataset)
+    print(size)
     model.train()
-    for epoch in range(50):
-        # 每个epoch要训练所有的图片，每训练完成200张便打印一下训练的效果（loss值）
-        # 定义一个变量方便我们对loss进行输出
-        print(f"Epoch {epoch + 1}\n-------------------------------")
-        running_loss = 0.0
-        for i, (X, y) in enumerate(dataloader):
-            # enumerate是python的内置函数，既获得索引也获得数据
-            # data是从enumerate返回的data，包含数据和标签信息，分别赋值给inputs和labels
-            inputs, labels = X.to(device), y.to(device)
-            #inputs, labels = X, y
-            # 转换数据格式用Variable
-            inputs, labels = Variable(inputs), Variable(labels)
-            # 梯度置零，因为反向传播过程中梯度会累加上一次循环的梯度
-            optimizer.zero_grad()
-            # forward + backward + optimize，把数据输进CNN网络
-            outputs = model(inputs)
-            # 计算损失值
-            loss = criterion(outputs, labels)
-            # loss反向传播
-            loss.backward()
-            # 反向传播后参数更新
-            optimizer.step()
-            # loss累加
-            running_loss += loss.item()
-            if i % 200 == 199:
-                # 然后再除以200，就得到这两百次的平均损失值
-                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 200))
-                # 这一个200次结束后，就把runni
+    for batch, (X, y) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)
 
-    print('Finished Training')
-    # 保存整个神经网络的结构和模型参数
-    torch.jit.save(torch.jit.script(model), 'final3.pt')
+        # Compute prediction error
+        pred = model(X)
+        loss = criterion(pred, y)
 
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if batch % 100 == 0:
+            loss, current = loss.item(), batch * len(X)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+
+def test(dataloader, model, loss_fn):
+    size = len(dataloader.dataset)
+    print(size)
+    num_batches = len(dataloader)
+    model.eval()
+    test_loss, correct = 0, 0
+    with torch.no_grad():
+        for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            test_loss += loss_fn(pred, y).item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+    test_loss /= num_batches
+    correct /= size
+    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
 
 if __name__ == '__main__':
 
-    trainloader = loadtraindata()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    trainloader,testloader = loaddata()
     # 神经网络结构
     net = NeuralNetwork().to(device)
     # 优化器
@@ -110,5 +125,15 @@ if __name__ == '__main__':
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     # 交叉熵损失函数
     criterion = nn.CrossEntropyLoss()
+    criterion.to(device)
 
-    trainandsave(trainloader, net, criterion, optimizer, device)
+    epochs = 60
+    for t in range(epochs):
+        print(f"Epoch {t + 1}\n-------------------------------")
+        trainandsave(trainloader, net, criterion, optimizer, device)
+        test(testloader, net, criterion)
+    print('Finished Training')
+    torch.jit.save(torch.jit.script(net), 'final.pt')
+
+
+

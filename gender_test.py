@@ -4,11 +4,26 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
+
 
 
 classes = ('男','女')
-mbatch_size = 5
+mbatch_size = 8
 path = "C:\\Users\\16404\\Desktop\\demo"
+
+
+def image_loader(image_name):
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),
+        # 在图片的中间区域进行裁
+        transforms.CenterCrop(32),
+        transforms.ToTensor()])
+    image = Image.open(image_name)
+    image = transform(image).unsqueeze(0)
+    return image.to(device, torch.float)
+
 def loadtestdata():
 
     testset = torchvision.datasets.ImageFolder(path,
@@ -49,24 +64,29 @@ def test2():
     testloader = loadtestdata()
     net = reload_net()
     dataiter = iter(testloader)
-    images, labels = dataiter.next()
+    images,x = dataiter.next()
     imshow(torchvision.utils.make_grid(images, nrow=5))
-    outputs = net(Variable(images.cuda()))
+    outputs = net(Variable(images).cuda())
     _, predicted = torch.max(outputs.data, 1)
     # 预测值
     print(predicted)
     print('预测值: ', " ".join('%5s' % classes[predicted[j]] for j in range(mbatch_size)))
 
 def test3():
-    transform = transforms.Compose([
-        transforms.Resize((32, 32)),
-        transforms.ToTensor()])
+    path = 'C:\\Users\\16404\\Desktop\\demo\\新建文件夹\\images2.jpg'
 
+    net = reload_net()
+    image = image_loader(path)
 
+    outputs = net(Variable(image))
+
+    _, predicted = torch.max(outputs.data, 1)
+
+    print(classes[predicted])
 
 
 
 
 
 if __name__ == '__main__':
-    test2()
+    test3()
