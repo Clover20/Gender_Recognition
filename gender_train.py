@@ -8,7 +8,7 @@ from torch.utils.data.dataloader import default_collate
 
 def loaddata():
     # 路径
-    path = "data/data"
+    path = "path"
     transform = transforms.Compose([
         # 将图片缩放到指定大小（h,w）或者保持长宽比并缩放最短的边到int大小
         transforms.Resize((32, 32)),
@@ -133,7 +133,7 @@ if __name__ == '__main__':
         trainandsave(trainloader, net, criterion, optimizer, device)
         test(testloader, net, criterion)
     print('Finished Training')
-    torch.jit.save(torch.jit.script(net), 'final4.pt')
+    torch.jit.save(torch.jit.script(net), 'gender.pt')
 
 
 
