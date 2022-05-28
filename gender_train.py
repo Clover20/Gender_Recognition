@@ -133,7 +133,7 @@ if __name__ == '__main__':
         trainandsave(trainloader, net, criterion, optimizer, device)
         test(testloader, net, criterion)
     print('Finished Training')
-    torch.jit.save(torch.jit.script(net), 'final.pt')
+    torch.jit.save(torch.jit.script(net), 'final4.pt')
 
 
 
