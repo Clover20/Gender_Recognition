@@ -26,7 +26,7 @@ class Application(Frame):
 
         self.btn01 = Button(self, text='打开', command=self.getfile, bg='white', anchor='s')
         self.btn01.grid(column=0, row=1)
-        # self.btn01.place(relx=0.8, rely=0.5, anchor=CENTER)
+        # self.sbtn01.place(relx=0.8, rely=0.5, anchor=CENTER)
 
     def getfile(self):
         file_path = filedialog.askopenfilename(title='选择文件', filetypes=[(('JPG', '*.jpg')), ('All Files', '*')])
